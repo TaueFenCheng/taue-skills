@@ -1,5 +1,5 @@
 ---
-name: zustand-store-best-practices
+name: zustand-store-taue-practices
 description: 通用 Zustand Store 使用规范技能。定义组件中使用 useShallow 的推荐写法、getState 的使用边界、传统单 Store 与 Slice 模式实践，以及 subscribeWithSelector 订阅方式。
 ---
 
