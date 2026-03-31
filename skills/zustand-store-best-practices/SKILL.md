@@ -1,13 +1,13 @@
 ---
-name: heytea-store
-description: Zustand Store 使用规范技能。规定组件中必须使用 useShallow 解构方式使用 store，禁止直接使用 getState()。包含传统单 Store 模式和 Slice 模式的书写规范，以及 subscribeWithSelector 订阅的使用方法。
+name: zustand-store-best-practices
+description: 通用 Zustand Store 使用规范技能。定义组件中使用 useShallow 的推荐写法、getState 的使用边界、传统单 Store 与 Slice 模式实践，以及 subscribeWithSelector 订阅方式。
 ---
 
 # Zustand Store 使用规范
 
 ## 适用范围
 
-本技能仅针对项目中 Zustand Store 的使用规范，包括：
+本技能适用于所有使用 Zustand 的 React/TypeScript 项目，包括：
 
 - 组件中消费 store 状态
 - 调用 store 中的方法
@@ -609,7 +609,7 @@ const unsubscribe = useMyStore.subscribe(
 unsubscribe()
 ```
 
-## 在 MapOperation 类中使用（项目实际案例）
+## 在 MapOperation 类中使用（通用示例）
 
 ```typescript
 // src/map/index.tsx

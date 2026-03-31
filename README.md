@@ -1,51 +1,93 @@
-# Heytea Store Skill
+# Agent Skills Collection
 
-Zustand Store 使用规范技能 - 喜茶智能选址平台
+可复用的通用 `agent skills` 仓库，支持通过 `npx skills add` 安装到不同 AI Agent 环境（如 Claude Code、Cursor、Codex、Gemini，具体以本机 `skills` CLI 支持的 agent 名称为准）。
 
-## 技能描述
+## 当前包含
 
-本技能定义了 Zustand Store 在项目中的使用规范，包括：
+- `zustand-store-best-practices`：Zustand Store 使用规范（`useShallow`、`getState` 边界、传统模式与 Slice 模式、`subscribeWithSelector`）
 
-- 组件中消费 store 状态
-- 调用 store 中的方法
-- Store 的创建规范（传统模式 和 Slice 模式）
-- 使用 subscribeWithSelector 进行订阅
+## 目录结构
 
-## 使用方法
+```text
+skills/
+  zustand-store-best-practices/
+    SKILL.md
+scripts/
+  install-skill.sh
+  uninstall-skill.sh
+  install-all.sh
+```
 
-将 `SKILL.md` 文件复制到你的 Claude Code skills 目录：
+## 推荐安装方式（npx）
+
+仓库地址：`https://github.com/TaueFenCheng/taue-skills`
+
+### 查看可用 skills
 
 ```bash
-cp SKILL.md ~/.claude/skills/heytea-store/
+npx skills add https://github.com/TaueFenCheng/taue-skills --list
 ```
 
-## 核心内容
+### 安装单个 skill（通用）
 
-### 组件中使用 Store 的正确方式
-
-**必须使用 `useShallow` 解构使用**，禁止在组件中直接使用 `getState()` 获取值。
-
-```typescript
-import { useCustomLayerStore } from '@/store/models/useCustomLayerStore'
-import { useShallow } from 'zustand/shallow'
-
-const { fetchLayerData, layerOptions } = useCustomLayerStore(
-  useShallow((state) => ({
-    fetchLayerData: state.fetchLayerData,
-    layerOptions: state.layerOptions,
-  })),
-)
+```bash
+npx skills add https://github.com/TaueFenCheng/taue-skills --skill zustand-store-best-practices
 ```
 
-### 两种 Store 模式
+### 安装全部 skills（通用）
 
-1. **传统单 Store 模式** - 适用于小型项目/简单功能
-2. **Slice 模式** - 适用于中大型项目/多模块
+```bash
+npx skills add https://github.com/TaueFenCheng/taue-skills --skill "*"
+```
 
-### subscribeWithSelector 订阅
+## 参数说明
 
-用于在非 React 组件场景中订阅特定状态的变化。
+- `-a, --agent`：可选。指定安装目标 agent。仅在你需要明确目标时传入。  
+  示例（按本机支持名称调整）：
 
-## License
+```bash
+npx skills add https://github.com/TaueFenCheng/taue-skills --skill zustand-store-best-practices -a claude-code
+npx skills add https://github.com/TaueFenCheng/taue-skills --skill zustand-store-best-practices -a cursor
+npx skills add https://github.com/TaueFenCheng/taue-skills --skill zustand-store-best-practices -a codex
+npx skills add https://github.com/TaueFenCheng/taue-skills --skill zustand-store-best-practices -a gemini
+```
 
-Private
+- `-y, --yes`：可选。跳过交互确认，适合 CI 或批量安装。
+
+## 本地脚本安装（可选）
+
+本地脚本默认安装到 `~/.claude/skills`，也支持通过环境变量 `SKILLS_TARGET_ROOT` 指定任意目标目录。
+
+### 安装单个 skill
+
+```bash
+cd /Users/heytea/code/taue-skills
+./scripts/install-skill.sh zustand-store-best-practices
+```
+
+### 安装全部 skills
+
+```bash
+cd /Users/heytea/code/taue-skills
+./scripts/install-all.sh
+```
+
+### 指定目标目录安装（示例）
+
+```bash
+cd /Users/heytea/code/taue-skills
+SKILLS_TARGET_ROOT=~/.cursor/skills ./scripts/install-skill.sh zustand-store-best-practices
+```
+
+## 卸载
+
+```bash
+cd /Users/heytea/code/taue-skills
+./scripts/uninstall-skill.sh zustand-store-best-practices
+```
+
+## 分发给他人
+
+1. 保持仓库公开。
+2. 告知使用者执行 `npx skills add https://github.com/TaueFenCheng/taue-skills --skill <name>`。
+3. 更新 skill 后，使用者重新执行安装命令即可覆盖升级。
