@@ -5,152 +5,157 @@ SHELL := /bin/bash
 SKILLS_DIR := $(shell pwd)/skills
 TARGET_ROOT ?= $(HOME)/.claude/skills
 
-# 彩色输出
-COLOR_RESET := \033[0m
-COLOR_GREEN := \033[32m
-COLOR_BLUE  := \033[34m
-COLOR_YELLOW := \033[33m
-
 # 默认目标
 .DEFAULT_GOAL := help
 
 # 显示帮助信息
 .PHONY: help
 help:
-	@echo "$(COLOR_BLUE)Taue Skills Makefile$(COLOR_RESET)"
-	@echo ""
-	@echo "$(COLOR_YELLOW)用法:$(COLOR_RESET)"
-	@echo "  make <target> [args]"
-	@echo ""
-	@echo "$(COLOR_YELLOW)可用命令:$(COLOR_RESET)"
-	@echo "  install-all           安装所有 skills"
-	@echo "  install skill=<name>  安装指定 skill"
-	@echo "  uninstall skill=<name> 卸载指定 skill"
-	@echo "  list                  列出所有可用的 skills"
-	@echo "  clean                 清理所有已安装的 skills"
-	@echo "  status                查看已安装的 skills 状态"
-	@echo "  watch                 监听 skills 变化并自动同步"
-	@echo "  help                  显示帮助信息"
-	@echo ""
-	@echo "$(COLOR_YELLOW)示例:$(COLOR_RESET)"
-	@echo "  make install-all"
-	@echo "  make install skill=fetch-request-taue-practices"
-	@echo "  make uninstall skill=fetch-request-taue-practices"
-	@echo "  make TARGET_ROOT=/custom/path install-all"
+	@printf "\033[34mTaue Skills Makefile\033[0m\n"
+	@printf "\n"
+	@printf "\033[33m用法:\033[0m\n"
+	@printf "  make <target> [args]\n"
+	@printf "\n"
+	@printf "\033[33m可用命令:\033[0m\n"
+	@printf "  install-all           安装所有 skills\n"
+	@printf "  install skill=<name>  安装指定 skill\n"
+	@printf "  uninstall skill=<name> 卸载指定 skill\n"
+	@printf "  list                  列出所有可用的 skills\n"
+	@printf "  clean                 清理所有已安装的 skills\n"
+	@printf "  status                查看已安装的 skills 状态\n"
+	@printf "  watch                 监听 skills 变化并自动同步\n"
+	@printf "  help                  显示帮助信息\n"
+	@printf "\n"
+	@printf "\033[33m示例:\033[0m\n"
+	@printf "  make install-all\n"
+	@printf "  make install skill=fetch-request-taue-practices\n"
+	@printf "  make uninstall skill=fetch-request-taue-practices\n"
+	@printf "  make TARGET_ROOT=/custom/path install-all\n"
 
 # 安装所有 skills
 .PHONY: install-all
 install-all:
-	@echo "$(COLOR_BLUE)正在安装所有 skills...$(COLOR_RESET)"
+	@printf "\033[34m正在安装所有 skills...\033[0m\n"
 	@bash scripts/install-all.sh
-	@echo "$(COLOR_GREEN)完成!$(COLOR_RESET)"
+	@printf "\033[32m完成!\033[0m\n"
 
 # 安装指定 skill
 .PHONY: install
 install:
 ifndef skill
-	@echo "$(COLOR_YELLOW)用法:make install skill=<skill-name>$(COLOR_RESET)"
-	@echo "$(COLOR_BLUE)可用的 skills:$(COLOR_RESET)"
+	@printf "\033[33m用法:make install skill=<skill-name>\033[0m\n"
+	@printf "\033[34m可用的 skills:\033[0m\n"
 	@ls -1 $(SKILLS_DIR)
 	@exit 1
 endif
-	@echo "$(COLOR_BLUE)正在安装 skill: $(skill)$(COLOR_RESET)"
+	@printf "\033[34m正在安装 skill: $(skill)\033[0m\n"
 	@bash scripts/install-skill.sh $(skill)
-	@echo "$(COLOR_GREEN)完成!$(COLOR_RESET)"
+	@printf "\033[32m完成!\033[0m\n"
 
 # 卸载指定 skill
 .PHONY: uninstall
 uninstall:
 ifndef skill
-	@echo "$(COLOR_YELLOW)用法:make uninstall skill=<skill-name>$(COLOR_RESET)"
+	@printf "\033[33m用法:make uninstall skill=<skill-name>\033[0m\n"
 	@exit 1
 endif
-	@echo "$(COLOR_BLUE)正在卸载 skill: $(skill)$(COLOR_RESET)"
+	@printf "\033[34m正在卸载 skill: $(skill)\033[0m\n"
 	@bash scripts/uninstall-skill.sh $(skill)
-	@echo "$(COLOR_GREEN)完成!$(COLOR_RESET)"
+	@printf "\033[32m完成!\033[0m\n"
 
 # 列出所有可用的 skills
 .PHONY: list
 list:
-	@echo "$(COLOR_BLUE)可用的 skills:$(COLOR_RESET)"
-	@ls -1 $(SKILLS_DIR) | while read name; do \
-		if [[ -f "$(SKILLS_DIR)/$$name/SKILL.md" ]]; then \
-			desc=$$(grep -m1 "^description:" "$(SKILLS_DIR)/$$name/SKILL.md" 2>/dev/null | cut -d':' -f2- | xargs); \
-			echo "  $(COLOR_GREEN)$$name$(COLOR_RESET)$$([[ -n "$$desc" ]] && echo " - $$desc")"; \
+	@printf "\033[34m可用的 skills:\033[0m\n"
+	@for dir in $(SKILLS_DIR)/*; do \
+		if [[ -d "$$dir" && -f "$$dir/SKILL.md" ]]; then \
+			name=$$(basename "$$dir"); \
+			desc=$$(grep -m1 "^description:" "$$dir/SKILL.md" 2>/dev/null | cut -d':' -f2- | xargs); \
+			if [[ -n "$$desc" ]]; then \
+				printf "  \033[32m$$name\033[0m - $$desc\n"; \
+			else \
+				printf "  \033[32m$$name\033[0m\n"; \
+			fi; \
 		fi; \
 	done
 
 # 清理所有已安装的 skills
 .PHONY: clean
 clean:
-	@echo "$(COLOR_YELLOW)正在清理所有已安装的 skills...$(COLOR_RESET)"
+	@printf "\033[33m正在清理所有已安装的 skills...\033[0m\n"
 	@rm -rf $(TARGET_ROOT)/*
-	@echo "$(COLOR_GREEN)清理完成!$(COLOR_RESET)"
+	@printf "\033[32m清理完成!\033[0m\n"
 
 # 查看已安装的 skills 状态
 .PHONY: status
 status:
-	@echo "$(COLOR_BLUE)已安装的 skills:$(COLOR_RESET)"
+	@printf "\033[34m已安装的 skills:\033[0m\n"
 	@if [[ -d "$(TARGET_ROOT)" ]]; then \
-		ls -1 $(TARGET_ROOT) 2>/dev/null | while read name; do \
-			echo "  $(COLOR_GREEN)$$name$(COLOR_RESET)"; \
-		done || echo "  (无)"; \
+		count=0; \
+		for dir in $(TARGET_ROOT)/*; do \
+			if [[ -d "$$dir" ]]; then \
+				printf "  \033[32m$$(basename "$$dir")\033[0m\n"; \
+				count=$$((count + 1)); \
+			fi; \
+		done; \
+		if [[ $$count -eq 0 ]]; then printf "  (无)\n"; fi; \
 	else \
-		echo "  (目录不存在：$(TARGET_ROOT))"; \
+		printf "  (目录不存在：$(TARGET_ROOT))\n"; \
 	fi
-	@echo ""
-	@echo "$(COLOR_BLUE)本地 skills:$(COLOR_RESET)"
-	@ls -1 $(SKILLS_DIR) | wc -l | xargs -I {} echo "  共 {} 个"
+	@printf "\n"
+	@printf "\033[34m本地 skills:\033[0m\n"
+	@count=$$(ls -1 $(SKILLS_DIR) 2>/dev/null | wc -l); \
+	printf "  共 $$count 个\n"
 
 # 监听 skills 变化并自动同步 (需要 fswatch)
 .PHONY: watch
 watch:
-	@echo "$(COLOR_BLUE)开始监听 skills 目录变化...$(COLOR_RESET)"
+	@printf "\033[34m开始监听 skills 目录变化...\033[0m\n"
 	@command -v fswatch >/dev/null 2>&1 || { \
-		echo "$(COLOR_YELLOW)需要安装 fswatch: brew install fswatch (macOS) 或 apt-get install fswatch (Linux)$(COLOR_RESET)"; \
+		printf "\033[33m需要安装 fswatch: brew install fswatch (macOS) 或 apt-get install fswatch (Linux)\033[0m\n"; \
 		exit 1; \
 	}
 	@fswatch -r $(SKILLS_DIR) | while read event; do \
-		echo "$(COLOR_BLUE)检测到变化，重新安装所有 skills...$(COLOR_RESET)"; \
+		printf "\033[34m检测到变化，重新安装所有 skills...\033[0m\n"; \
 		bash scripts/install-all.sh; \
 	done
 
 # 验证所有 skills 格式
 .PHONY: lint
 lint:
-	@echo "$(COLOR_BLUE)验证 skills 格式...$(COLOR_RESET)"
+	@printf "\033[34m验证 skills 格式...\033[0m\n"
 	@error=0; \
 	for dir in $(SKILLS_DIR)/*; do \
 		if [[ -d "$$dir" ]]; then \
 			if [[ ! -f "$$dir/SKILL.md" ]]; then \
-				echo "$(COLOR_YELLOW)警告：$$dir 缺少 SKILL.md$(COLOR_RESET)"; \
+				printf "\033[33m警告：$$dir 缺少 SKILL.md\033[0m\n"; \
 				error=1; \
 			fi; \
 		fi; \
 	done; \
 	if [[ $$error -eq 0 ]]; then \
-		echo "$(COLOR_GREEN)所有 skills 格式正确!$(COLOR_RESET)"; \
+		printf "\033[32m所有 skills 格式正确!\033[0m\n"; \
 	fi
 
 # 创建新的 skill 模板
 .PHONY: new
 new:
 ifndef name
-	@echo "$(COLOR_YELLOW)用法:make new name=<skill-name>$(COLOR_RESET)"
+	@printf "\033[33m用法:make new name=<skill-name>\033[0m\n"
 	@exit 1
 endif
 	@mkdir -p $(SKILLS_DIR)/$(name)
-	@echo '---' > $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo 'name: $(name)' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo 'description: <skill 描述>' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo '---' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo '' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo '# $(name) 使用规范' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo '' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo '## 适用范围' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo '' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo '## 核心原则' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo '' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo '## 最佳实践' >> $(SKILLS_DIR)/$(name)/SKILL.md
-	@echo "$(COLOR_GREEN)已创建 skill 模板：$(SKILLS_DIR)/$(name)/SKILL.md$(COLOR_RESET)"
-	@echo "$(COLOR_BLUE)编辑文件并开始开发!$(COLOR_RESET)"
+	@printf '%s\n' '---' > $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '%s\n' 'name: $(name)' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '%s\n' 'description: <skill 描述>' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '%s\n' '---' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '\n' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '%s\n' '# $(name) 使用规范' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '\n' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '%s\n' '## 适用范围' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '\n' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '%s\n' '## 核心原则' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '\n' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf '%s\n' '## 最佳实践' >> $(SKILLS_DIR)/$(name)/SKILL.md
+	@printf "\033[32m已创建 skill 模板：$(SKILLS_DIR)/$(name)/SKILL.md\033[0m\n"
+	@printf "\033[34m编辑文件并开始开发!\033[0m\n"
