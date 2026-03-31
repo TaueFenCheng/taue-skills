@@ -102,6 +102,24 @@ class Request {
     let fullUrl = url.startsWith('http') ? url : `${this.baseURL}${url}`
     fullUrl = this.buildUrl(fullUrl, params)
 
+    // ============ 执行请求拦截器 ============
+    let finalOptions = await this.runRequestInterceptors({
+      method,
+      headers,
+      body,
+      timeout,
+      skipErrorHandler,
+      skipAuth,
+      abortSignal,
+    })
+
+    // 从拦截器后的配置中重新解构
+    const {
+      method: finalMethod,
+      headers: finalHeaders,
+      body: finalBody,
+    } = finalOptions
+
     // 创建 AbortController 用于超时和手动取消
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeout)
@@ -110,27 +128,19 @@ class Request {
       // 合并请求头
       const requestHeaders: HeadersInit = {
         'Content-Type': 'application/json',
-        ...headers,
-      }
-
-      // 注入认证 token（除非跳过）
-      if (!skipAuth) {
-        const token = this.getToken()
-        if (token) {
-          ;(requestHeaders as Record<string, string>).Authorization = `Bearer ${token}`
-        }
+        ...finalHeaders,
       }
 
       // 构建请求配置
       const config: RequestInit = {
-        method,
+        method: finalMethod,
         headers: requestHeaders,
         signal: abortSignal || controller.signal,
       }
 
       // 处理请求体
-      if (body && method !== 'GET') {
-        config.body = typeof body === 'string' ? body : JSON.stringify(body)
+      if (finalBody && finalMethod !== 'GET') {
+        config.body = typeof finalBody === 'string' ? finalBody : JSON.stringify(finalBody)
       }
 
       // 发起请求
@@ -145,13 +155,13 @@ class Request {
       // 清除超时定时器
       clearTimeout(timeoutId)
 
-      // 处理错误
-      return this.handleError(error, skipErrorHandler)
+      // ============ 执行错误拦截器 ============
+      throw await this.runErrorInterceptors(error)
     }
   }
 
   /**
-   * 处理响应
+   * 处理响应 - 执行响应拦截器
    */
   private async handleResponse<T>(
     response: Response,
@@ -176,7 +186,8 @@ class Request {
       throw new Error(result.message || '请求失败')
     }
 
-    return result.data
+    // ============ 执行响应拦截器 ============
+    return await this.runResponseInterceptors<T>(result.data)
   }
 
   /**
@@ -502,42 +513,90 @@ function UserProfile() {
 // src/utils/request/interceptors.ts
 import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 
-// 请求拦截器类型
+---
+
+## 拦截器实现与使用
+
+### 完整实现代码
+
+```typescript
+// src/utils/request/index.ts
+import { message } from 'antd'
+
+export interface RequestOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+  headers?: HeadersInit
+  body?: any
+  params?: Record<string, any>
+  timeout?: number
+  skipErrorHandler?: boolean
+  skipAuth?: boolean
+  abortSignal?: AbortSignal
+}
+
+export interface ApiResponse<T = any> {
+  code: number
+  data: T
+  message: string
+}
+
+// ============ 拦截器类型定义 ============
 export type RequestInterceptor = (
   config: RequestOptions,
 ) => RequestOptions | Promise<RequestOptions>
 
-// 响应拦截器类型
 export type ResponseInterceptor<T = any> = (
   response: T,
 ) => T | Promise<T>
 
-// 错误拦截器类型
 export type ErrorInterceptor = (
   error: any,
 ) => any | Promise<any>
 
 class Request {
+  private baseURL: string
+  private timeout: number
+  // 拦截器队列
   private requestInterceptors: RequestInterceptor[] = []
   private responseInterceptors: ResponseInterceptor[] = []
   private errorInterceptors: ErrorInterceptor[] = []
 
-  // 添加请求拦截器
+  constructor(baseURL: string, timeout: number = 30000) {
+    this.baseURL = baseURL
+    this.timeout = timeout
+  }
+
+  // ============ 拦截器注册方法 ============
+
+  /**
+   * 添加请求拦截器
+   * @param interceptor 请求拦截器函数
+   */
   addRequestInterceptor(interceptor: RequestInterceptor) {
     this.requestInterceptors.push(interceptor)
   }
 
-  // 添加响应拦截器
+  /**
+   * 添加响应拦截器
+   * @param interceptor 响应拦截器函数
+   */
   addResponseInterceptor<T>(interceptor: ResponseInterceptor<T>) {
     this.responseInterceptors.push(interceptor)
   }
 
-  // 添加错误拦截器
+  /**
+   * 添加错误拦截器
+   * @param interceptor 错误拦截器函数
+   */
   addErrorInterceptor(interceptor: ErrorInterceptor) {
     this.errorInterceptors.push(interceptor)
   }
 
-  // 执行请求拦截器
+  // ============ 拦截器执行方法 ============
+
+  /**
+   * 执行请求拦截器链
+   */
   private async runRequestInterceptors(
     config: RequestOptions,
   ): Promise<RequestOptions> {
@@ -548,7 +607,9 @@ class Request {
     return newConfig
   }
 
-  // 执行响应拦截器
+  /**
+   * 执行响应拦截器链
+   */
   private async runResponseInterceptors<T>(response: T): Promise<T> {
     let newResponse = response
     for (const interceptor of this.responseInterceptors) {
@@ -557,7 +618,9 @@ class Request {
     return newResponse
   }
 
-  // 执行错误拦截器
+  /**
+   * 执行错误拦截器链
+   */
   private async runErrorInterceptors(error: any): Promise<any> {
     let newError = error
     for (const interceptor of this.errorInterceptors) {
@@ -566,28 +629,50 @@ class Request {
     return newError
   }
 }
+
+// 导出单例
+export const request = new Request(process.env.REACT_APP_API_URL || '/api')
 ```
 
-### 拦截器使用示例
+---
+
+## 拦截器使用示例
+
+### 执行流程
+
+```
+发起请求
+    ↓
+[请求拦截器 1] → [请求拦截器 2] → [请求拦截器 3]
+    ↓              ↓                ↓
+  修改 config   添加 token      添加时间戳
+    ↓
+执行 fetch 请求
+    ↓
+[响应拦截器 1] → [响应拦截器 2]
+    ↓              ↓
+  数据转换      空值处理
+    ↓
+返回给用户
+
+发生错误时:
+    ↓
+[错误拦截器 1] → [错误拦截器 2]
+    ↓              ↓
+  401 处理     错误上报
+```
+
+### 场景一：添加 Token
 
 ```typescript
-// src/utils/request/setup.ts
+// src/utils/request/interceptors/auth.ts
 import { request } from './index'
 
-// 请求拦截器：添加公共参数
-request.addRequestInterceptor((config) => {
-  // 添加请求时间戳（防止 IE 缓存）
-  if (config.method === 'GET') {
-    const separator = config.url?.includes('?') ? '&' : '?'
-    config.url = `${config.url}${separator}_t=${Date.now()}`
-  }
-  return config
-})
-
-// 请求拦截器：添加 token
+// 请求拦截器：自动注入 token
 request.addRequestInterceptor(async (config) => {
+  // 如果请求需要认证（默认都需要，除非设置 skipAuth: true）
   if (!config.skipAuth) {
-    const token = await getToken()
+    const token = localStorage.getItem('token')
     if (token) {
       config.headers = {
         ...config.headers,
@@ -597,28 +682,210 @@ request.addRequestInterceptor(async (config) => {
   }
   return config
 })
+```
 
-// 响应拦截器：处理业务错误
-request.addResponseInterceptor((response) => {
-  // 可以在这里做统一的数据处理
-  return response
+### 场景二：防止 GET 请求缓存
+
+```typescript
+// src/utils/request/interceptors/cache.ts
+import { request } from './index'
+
+// 请求拦截器：为 GET 请求添加时间戳防止缓存
+request.addRequestInterceptor((config) => {
+  if (config.method === 'GET' && config.url) {
+    const separator = config.url.includes('?') ? '&' : '?'
+    config.url = `${config.url}${separator}_t=${Date.now()}`
+  }
+  return config
+})
+```
+
+### 场景三：统一响应数据处理
+
+```typescript
+// src/utils/request/interceptors/response.ts
+import { message } from 'antd'
+import { request } from './index'
+
+// 响应拦截器：空数据提示
+request.addResponseInterceptor((data) => {
+  // 如果响应数据为空，返回默认值
+  if (data === null || data === undefined) {
+    return [] as any
+  }
+  return data
 })
 
-// 错误拦截器：处理 token 过期
+// 响应拦截器：成功提示（可选）
+request.addResponseInterceptor((data) => {
+  // 某些操作成功后提示
+  if (data?.successMessage) {
+    message.success(data.successMessage)
+  }
+  return data
+})
+```
+
+### 场景四：Token 过期刷新
+
+```typescript
+// src/utils/request/interceptors/token-refresh.ts
+import { request } from './index'
+import { refreshTokenApi } from '@/services/auth'
+
+let isRefreshing = false
+let refreshPromise: Promise<string> | null = null
+const pendingRequests: Array<{
+  resolve: (token: string) => void
+  reject: (error: any) => void
+}> = []
+
+// 错误拦截器：处理 401 未授权
 request.addErrorInterceptor(async (error) => {
-  if (error.response?.status === 401) {
-    // 尝试刷新 token
+  const originalRequest = error.config
+
+  // 如果是 401 错误且不是刷新 token 的请求
+  if (error.status === 401 && !originalRequest._retry) {
+    originalRequest._retry = true
+
+    // 如果正在刷新 token，将请求加入队列
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        pendingRequests.push({ resolve, reject })
+      }).then((token) => {
+        originalRequest.headers.Authorization = `Bearer ${token}`
+        return request.request(originalRequest.url, originalRequest)
+      })
+    }
+
+    // 开始刷新 token
+    isRefreshing = true
+    refreshPromise = refreshTokenApi()
+      .then((newToken) => {
+        // 刷新成功，通知队列中的请求
+        pendingRequests.forEach(({ resolve }) => resolve(newToken))
+        pendingRequests.length = 0
+        return newToken
+      })
+      .catch((err) => {
+        // 刷新失败，通知队列中的请求
+        pendingRequests.forEach(({ reject }) => reject(err))
+        pendingRequests.length = 0
+        // 跳转登录
+        window.location.href = '/login'
+        throw err
+      })
+      .finally(() => {
+        isRefreshing = false
+      })
+
     try {
-      await refresh_token()
+      const newToken = await refreshPromise
+      originalRequest.headers.Authorization = `Bearer ${newToken}`
       // 重试原请求
-      return retryRequest(error.config)
+      return request.request(originalRequest.url, originalRequest)
     } catch {
-      // 刷新失败，跳转登录
-      redirectToLogin()
+      throw error
     }
   }
+
   throw error
 })
+```
+
+### 场景五：请求日志记录
+
+```typescript
+// src/utils/request/interceptors/logger.ts
+import { request } from './index'
+
+// 请求拦截器：记录请求日志
+request.addRequestInterceptor((config) => {
+  console.group(`[HTTP] ${config.method} ${config.url}`)
+  console.log('Request:', config)
+  console.time(`[HTTP] ${config.method}`)
+  return config
+})
+
+// 响应拦截器：记录响应日志
+request.addResponseInterceptor((data) => {
+  console.log('Response:', data)
+  console.timeEnd(`[HTTP] ${config.method}`)
+  console.groupEnd()
+  return data
+})
+
+// 错误拦截器：记录错误日志
+request.addErrorInterceptor((error) => {
+  console.error('[HTTP Error]', error)
+  console.groupEnd()
+  throw error
+})
+```
+
+### 场景六：请求 Loading 状态
+
+```typescript
+// src/utils/request/interceptors/loading.ts
+import { Spin } from 'antd'
+import { request } from './index'
+
+// 请求拦截器：显示 loading
+request.addRequestInterceptor((config) => {
+  if (!config.skipLoading) {
+    Spin.show()
+  }
+  return config
+})
+
+// 响应拦截器：隐藏 loading
+request.addResponseInterceptor((data) => {
+  Spin.hide()
+  return data
+})
+
+// 错误拦截器：隐藏 loading
+request.addErrorInterceptor((error) => {
+  Spin.hide()
+  throw error
+})
+```
+
+### 在 setup 文件中统一注册拦截器
+
+```typescript
+// src/utils/request/setup.ts
+import { request } from './index'
+
+// 导入所有拦截器（在拦截器文件中会自动注册）
+import './interceptors/auth'
+import './interceptors/cache'
+import './interceptors/response'
+import './interceptors/token-refresh'
+
+// 应用启动时执行一次
+export function setupRequestInterceptors() {
+  console.log('Request interceptors initialized')
+}
+```
+
+### 在入口文件中初始化
+
+```typescript
+// src/main.tsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { setupRequestInterceptors } from './utils/request/setup'
+import App from './App'
+
+// 初始化请求拦截器
+setupRequestInterceptors()
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+)
 ```
 
 ---
