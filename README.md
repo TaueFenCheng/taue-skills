@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![GitHub](https://img.shields.io/github/license/TaueFenCheng/taue-skills)
+![GitHub](https://img.shields.io/github/license/TaueFenCheng/taue-skills?label=MIT)
 ![GitHub stars](https://img.shields.io/github/stars/TaueFenCheng/taue-skills?style=flat)
 ![GitHub issues](https://img.shields.io/github/issues/TaueFenCheng/taue-skills)
 ![GitHub last commit](https://img.shields.io/github/last-commit/TaueFenCheng/taue-skills)
